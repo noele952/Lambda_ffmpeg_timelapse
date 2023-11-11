@@ -1,0 +1,31 @@
+####### Requires FFMPEG lambda layer
+import os
+import subprocess
+import boto3
+
+def lambda_handler(event, context):
+    s3_bucket = 'photo_bucket_name'
+    input_prefix = 'input-folder/'
+    output_prefix = 'output-folder/'
+
+    s3_client = boto3.client('s3')
+
+    # get list of pictures
+    objects = s3_client.list_objects(Bucket=s3_bucket, Prefix=input_prefix)['Contents']
+    
+    # sort pictures
+    objects.sort(key=lambda x: int(x['Key'].split('_')[-1]))
+    
+    input_files = [f"s3://{s3_bucket}/{obj['Key']}" for obj in objects]
+    output_file = f"s3://{s3_bucket}/{output_prefix}output_timelapse.mp4"
+    
+    #call ffmpeg
+    ffmpeg_cmd = f"ffmpeg -framerate 1/5 -i {input_files[0]} -vf 'fps=25' -c:v libx264 -r 30 -pix_fmt yuv420p {output_file}"
+    subprocess.run(ffmpeg_cmd, shell=True)
+    
+    print("Time-lapse created successfully!")
+
+    return {
+        'statusCode': 200,
+        'body': 'time lapse created successfully!'
+    }
